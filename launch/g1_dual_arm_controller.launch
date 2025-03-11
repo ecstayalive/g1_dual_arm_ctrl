@@ -1,0 +1,8 @@
+<launch>
+    <rosparam command="load" file="$(find droid_arm_controller)/config/kinematics.yaml" subst_value="true"/>
+    <param name="robot_description" command="cat $(find g1_description)/urdf/g1_dual_arm.urdf" />
+    <param name="robot_description_semantic" command="cat $(find droid_arm_controller)/config/g1_dual_arm.srdf" />
+    <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
+    <rosparam command="load" file="$(find droid_arm_controller)/config/ompl_planning.yaml"/>
+    <node name="droid_arm_controller" pkg="droid_arm_controller" type="droid_arm_controller_node" output="screen"/>
+</launch>

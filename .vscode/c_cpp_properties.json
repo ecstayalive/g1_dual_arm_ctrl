@@ -1,0 +1,28 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/ecstayalive/Workspaces/droid_project/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/droid_arm_controller/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/lqc/integrations/lqc-ros/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/lqc/integrations/lqc-ros-client/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/unitree_ros/unitree_controller/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/unitree_ros/unitree_legged_control/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/unitree_ros/unitree_ros_to_real/unitree_legged_real/include/**",
+        "/home/ecstayalive/Workspaces/droid_project/src/unitree_ros/unitree_ros_to_real/unitree_legged_sdk/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
