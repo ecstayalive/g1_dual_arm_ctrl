@@ -1,0 +1,2 @@
+add_executable(test_arm_api test_arm_api.cpp)
+target_link_libraries(test_arm_api unitree_sdk2)

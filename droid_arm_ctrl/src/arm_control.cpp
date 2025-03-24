@@ -1,0 +1,298 @@
+#include "droid_arm_ctrl/arm_control.h"
+
+#include <Eigen/Dense>
+
+#include "droid_arm_ctrl/math_utils.h"
+
+namespace g1_controller {
+
+G1Controller::G1Controller(const ros::NodeHandle &handle)
+    : handle_(handle),
+      pickup_as_(handle, "pickup",
+                 std::bind(&G1Controller::actionPickupBox, this,
+                           std::placeholders::_1),
+                 false),
+      place_as_(
+          handle, "place",
+          std::bind(&G1Controller::actionPlaceBox, this, std::placeholders::_1),
+          false) {
+  arm_model_ = std::make_unique<g1_dual_arm::G1DualArmPlanner>(handle);
+  pickup_as_.start();
+  place_as_.start();
+  //   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmModel>(handle);
+}
+
+G1Controller::~G1Controller() {
+  communication_enabled_ = false;
+  if (communication_.joinable()) {
+    communication_.join();
+  }
+}
+
+void G1Controller::actionPickupAndPlaceBox() {
+  Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
+                    right_arm_target_pose = Eigen::Isometry3d::Identity();
+  Eigen::VectorXf goal_q(14), prev_q(14);
+  bool left_find_ik, right_find_ik;
+  // stage 1
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitY()));
+  left_arm_target_pose.translation() << 0.05, 0.3, 0.8;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "left_find_ik:" << left_find_ik
+            << "\nright_find_ik: " << right_find_ik
+            << "\ngoal_q: " << goal_q.transpose() << std::endl;
+  low_state_.getQ(prev_q);
+  simplePlanAndMove(3.0, prev_q, goal_q);
+  // stage 2
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.33, 0.14, 0.69;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "left_find_ik:" << left_find_ik
+            << "\nright_find_ik: " << right_find_ik
+            << "\ngoal_q: " << goal_q.transpose() << std::endl;
+  simplePlanAndMove(5.4, prev_q, goal_q);
+  // stage 3
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.38, 0.14, 0.9;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "left_find_ik:" << left_find_ik
+            << "\nright_find_ik: " << right_find_ik
+            << "\ngoal_q: " << goal_q.transpose() << std::endl;
+  simplePlanAndMove(4.2, prev_q, goal_q);
+  // stage 4
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.32, 0.15, 0.68;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "left_find_ik:" << left_find_ik
+            << "\nright_find_ik: " << right_find_ik
+            << "\ngoal_q: " << goal_q.transpose() << std::endl;
+  simplePlanAndMove(5.2, prev_q, goal_q);
+  // stage 5
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.12, 0.32, 0.63;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  simplePlanAndMove(2., prev_q, goal_q);
+}
+
+void G1Controller::actionPickupBox(
+    const dual_arm_srv::PickupGoalConstPtr &goal) {
+  Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
+                    right_arm_target_pose = Eigen::Isometry3d::Identity();
+  Eigen::VectorXf goal_q(14), prev_q(14);
+  bool left_find_ik, right_find_ik;
+  // stage 1
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitY()));
+  left_arm_target_pose.translation() << 0.05, 0.3, 0.8;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "goal q: " << goal_q.transpose() << std::endl;
+  low_state_.getQ(prev_q);
+  simplePlanAndMove(3.0, prev_q, goal_q);
+  // stage 2
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.33, 0.14, 0.69;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "goal q: " << goal_q.transpose() << std::endl;
+  simplePlanAndMove(5.4, prev_q, goal_q);
+  // stage 3
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.38, 0.14, 0.9;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "goal q: " << goal_q.transpose() << std::endl;
+  simplePlanAndMove(4.2, prev_q, goal_q);
+  pickup_result_.success = true;
+  pickup_as_.setSucceeded(pickup_result_);
+}
+
+void G1Controller::actionPlaceBox(const dual_arm_srv::PlaceGoalConstPtr &goal) {
+  Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
+                    right_arm_target_pose = Eigen::Isometry3d::Identity();
+  Eigen::VectorXf goal_q(14), prev_q(14);
+  bool left_find_ik, right_find_ik;
+  // stage 4·
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  left_arm_target_pose.translation() << 0.32, 0.15, 0.68;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  std::cout << "left_find_ik:" << left_find_ik
+            << "\nright_find_ik: " << right_find_ik
+            << "\ngoal_q: " << goal_q.transpose() << std::endl;
+  low_state_.getQ(prev_q);
+  simplePlanAndMove(5.2, prev_q, goal_q);
+  // stage 5
+  left_arm_target_pose.setIdentity();
+  right_arm_target_pose.setIdentity();
+  prev_q = goal_q;
+  left_arm_target_pose.translation() << 0.12, 0.32, 0.63;
+  right_arm_target_pose.translation() = left_arm_target_pose.translation();
+  right_arm_target_pose.translation().y() =
+      -right_arm_target_pose.translation().y();
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::LeftArm,
+                                              left_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                               right_arm_target_pose,
+                                               low_state_.getQ(), goal_q);
+  simplePlanAndMove(2., prev_q, goal_q);
+  place_result_.success = true;
+  place_as_.setSucceeded(place_result_);
+}
+
+void G1Controller::actionLiftRightArm() {
+  Eigen::Isometry3d right_arm_target_pose = Eigen::Isometry3d::Identity();
+  Eigen::VectorXf goal_q(14), prev_q(14);
+  low_state_.getQ(prev_q);
+  low_state_.getQ(goal_q);
+  //   goal_q.head<7>().setZero();
+  bool left_find_ik;
+  // stage 1
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 4, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.translation() << 0.3, -0.14, 0.9;
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                              right_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  low_state_.getQ(prev_q);
+  std::cout << "find_ik:" << left_find_ik << "\ngoal_q: " << goal_q.transpose()
+            << std::endl;
+  if (left_find_ik) simplePlanAndMove(4.0, prev_q, goal_q);
+  // stage 2
+  prev_q = goal_q;
+  right_arm_target_pose.setIdentity();
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.translation() << 0.38, -0.14, 0.82;
+  left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
+                                              right_arm_target_pose,
+                                              low_state_.getQ(), goal_q);
+  std::cout << "find_ik:" << left_find_ik << "\ngoal_q: " << goal_q.transpose()
+            << std::endl;
+  if (left_find_ik) simplePlanAndMove(4.0, prev_q, goal_q);
+}
+
+void G1Controller::simplePlanAndMove(
+    double period, const Eigen::Ref<const Eigen::VectorXf> &start_q,
+    const Eigen::Ref<const Eigen::VectorXf> &end_q) {
+  math_utils::QuinticInterpolationFn<Eigen::VectorXf> interpolation_fn;
+  interpolation_fn.setPolyInterpolationKernel(period, start_q, end_q);
+  ros::Time start_time = ros::Time::now();
+  while ((ros::Time::now() - start_time).toSec() < period) {
+    low_cmd_.setControlGain(80.f, 1.f);
+    low_cmd_.setQ(interpolation_fn((ros::Time::now() - start_time).toSec()));
+  }
+}
+
+}  // namespace g1_controller
