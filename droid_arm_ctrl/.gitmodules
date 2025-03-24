@@ -1,4 +1,0 @@
-[submodule "third_party/unitree_sdk2"]
-	path = third_party/unitree_sdk2
-	url = https://github.com/unitreerobotics/unitree_sdk2
-	branch = main
