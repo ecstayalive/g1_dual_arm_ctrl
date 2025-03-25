@@ -26,7 +26,8 @@ find_package(catkin REQUIRED COMPONENTS
   geometric_shapes
   pcl_conversions
   moveit_ros_planning_interface
-  dual_arm_srv
+  actionlib
+  dual_arm_as
 )
 find_package(pinocchio REQUIRED)
 
@@ -111,7 +112,7 @@ find_package(pinocchio REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS unitree_legged_msgs
-  dual_arm_srv
+  dual_arm_as
   moveit_core
   moveit_visual_tools
   moveit_ros_planning_interface
@@ -144,7 +145,7 @@ include_directories(
 # # With catkin_make all packages are built within a single CMake context
 # # The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node src/main.cpp src/arm_control.cpp)
-add_dependencies(${PROJECT_NAME}_node ${catkin_EXPORTED_TARGETS} unitree_legged_msgs_gencpp dual_arm_srv_gencpp)
+add_dependencies(${PROJECT_NAME}_node ${catkin_EXPORTED_TARGETS} ${dual_arm_as_EXPORTED_TARGETS} unitree_legged_msgs_gencpp)
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   pinocchio::pinocchio
@@ -152,7 +153,7 @@ target_link_libraries(${PROJECT_NAME}_node
 )
 
 add_executable(sim_gazebo src/sim_main.cpp src/arm_control.cpp)
-add_dependencies(sim_gazebo ${catkin_EXPORTED_TARGETS} unitree_legged_msgs_gencpp dual_arm_srv_gencpp)
+add_dependencies(sim_gazebo ${catkin_EXPORTED_TARGETS} ${dual_arm_as_EXPORTED_TARGETS} unitree_legged_msgs_gencpp)
 target_link_libraries(sim_gazebo
   ${catkin_LIBRARIES}
   pinocchio::pinocchio

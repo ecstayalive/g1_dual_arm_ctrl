@@ -8,12 +8,12 @@ namespace g1_controller {
 
 G1Controller::G1Controller(const ros::NodeHandle &handle)
     : handle_(handle),
-      pickup_as_(handle, "pickup",
+      pickup_as_(handle, "/dual_arm_ctrl/pickup",
                  std::bind(&G1Controller::actionPickupBox, this,
                            std::placeholders::_1),
                  false),
       place_as_(
-          handle, "place",
+          handle, "/dual_arm_ctrl/place",
           std::bind(&G1Controller::actionPlaceBox, this, std::placeholders::_1),
           false) {
   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmPlanner>(handle);
@@ -138,7 +138,10 @@ void G1Controller::actionPickupAndPlaceBox() {
 }
 
 void G1Controller::actionPickupBox(
-    const dual_arm_srv::PickupGoalConstPtr &goal) {
+    const actionlib::SimpleActionServer<dual_arm_as::PickupAction>::GoalConstPtr
+        &goal) {
+  pickup_feedback_.progress = 0.f;
+  pickup_as_.publishFeedback(pickup_feedback_);
   Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
                     right_arm_target_pose = Eigen::Isometry3d::Identity();
   Eigen::VectorXf goal_q(14), prev_q(14);
@@ -161,6 +164,8 @@ void G1Controller::actionPickupBox(
   std::cout << "goal q: " << goal_q.transpose() << std::endl;
   low_state_.getQ(prev_q);
   simplePlanAndMove(3.0, prev_q, goal_q);
+  pickup_feedback_.progress = 0.33f;
+  pickup_as_.publishFeedback(pickup_feedback_);
   // stage 2
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -181,6 +186,8 @@ void G1Controller::actionPickupBox(
                                                low_state_.getQ(), goal_q);
   std::cout << "goal q: " << goal_q.transpose() << std::endl;
   simplePlanAndMove(5.4, prev_q, goal_q);
+  pickup_feedback_.progress = 0.66f;
+  pickup_as_.publishFeedback(pickup_feedback_);
   // stage 3
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -205,11 +212,15 @@ void G1Controller::actionPickupBox(
                                                low_state_.getQ(), goal_q);
   std::cout << "goal q: " << goal_q.transpose() << std::endl;
   simplePlanAndMove(4.2, prev_q, goal_q);
+  pickup_feedback_.progress = 1.f;
+  pickup_as_.publishFeedback(pickup_feedback_);
   pickup_result_.success = true;
   pickup_as_.setSucceeded(pickup_result_);
 }
 
-void G1Controller::actionPlaceBox(const dual_arm_srv::PlaceGoalConstPtr &goal) {
+void G1Controller::actionPlaceBox(
+    const actionlib::SimpleActionServer<dual_arm_as::PlaceAction>::GoalConstPtr
+        &goal) {
   Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
                     right_arm_target_pose = Eigen::Isometry3d::Identity();
   Eigen::VectorXf goal_q(14), prev_q(14);

@@ -2,7 +2,7 @@
 <launch>
   <!-- MoveIt options -->
   <arg name="pipeline" default="ompl" doc="Planning pipeline to use with MoveIt" />
-
+  <arg name="robot_name" value="g1_dual_arm" />
   <!-- Gazebo options -->
   <arg name="gazebo_gui" default="true" doc="Start Gazebo GUI" />
   <arg name="paused" default="false" doc="Start Gazebo paused" />
@@ -33,7 +33,7 @@
 
   <!-- load the controllers -->
   <node pkg="controller_manager" type="spawner" name="controller_spawner" respawn="false"
-    output="screen" ns="/g1_dual_arm_gazebo"
+    output="screen" ns="/$(arg robot_name)_gazebo"
     args="joint_state_controller
           left_shoulder_pitch_controller left_shoulder_roll_controller
           left_shoulder_yaw_controller left_elbow_controller
@@ -44,14 +44,12 @@
           right_wrist_pitch_controller right_wrist_yaw_controller" />
 
   <!-- convert joint states to TF transforms for rviz, etc -->
-  <!-- <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher"
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher"
     respawn="false" output="screen">
-    <remap from="/joint_states" to="/g1_dual_arm/joint_states" />
-  </node> -->
-  <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
-    <param name="use_gui" value="false" />
-    <remap from="/joint_states" to="/g1_dual_arm/joint_states" />
-  </node> -->
-
+    <remap from="/joint_states" to="/$(arg robot_name)_gazebo/joint_states" />
+  </node>
+  <include file="$(find unitree_controller)/launch/set_ctrl.launch">
+    <arg name="rname" value="$(arg robot_name)_gazebo" />
+  </include>
   <!-- Rviz -->
 </launch>

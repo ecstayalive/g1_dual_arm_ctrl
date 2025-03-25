@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(dual_arm_srv)
+project(dual_arm_as)
 
 # # Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,7 +8,8 @@ project(dual_arm_srv)
 # # if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 # # is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  std_msgs
+  actionlib
+  genmsg
   actionlib_msgs
 )
 
@@ -60,6 +61,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 # # Generate actions in the 'action' folder
 add_action_files(
+  DIRECTORY action
   FILES
   Pickup.action
   Place.action
@@ -68,7 +70,6 @@ add_action_files(
 # # Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
-  std_msgs
   actionlib_msgs
 )
 

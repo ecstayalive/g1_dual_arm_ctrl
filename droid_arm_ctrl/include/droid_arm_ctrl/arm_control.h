@@ -8,8 +8,8 @@
 // clang-format on
 #include <actionlib/server/simple_action_server.h>
 
-#include "dual_arm_srv/PickupAction.h"
-#include "dual_arm_srv/PlaceAction.h"
+#include "dual_arm_as/PickupAction.h"
+#include "dual_arm_as/PlaceAction.h"
 
 namespace g1_controller {
 
@@ -21,8 +21,10 @@ class G1Controller {
   void ctrl() {};
 
   void actionPickupAndPlaceBox();
-  void actionPickupBox(const dual_arm_srv::PickupGoalConstPtr &goal);
-  void actionPlaceBox(const dual_arm_srv::PlaceGoalConstPtr &goal);
+  void actionPickupBox(const actionlib::SimpleActionServer<
+                       dual_arm_as::PickupAction>::GoalConstPtr &goal);
+  void actionPlaceBox(const actionlib::SimpleActionServer<
+                      dual_arm_as::PlaceAction>::GoalConstPtr &goal);
 
   void actionLiftRightArm();
 
@@ -84,13 +86,11 @@ class G1Controller {
   // std::unique_ptr<g1_dual_arm::G1DualArmModel> arm_model_;
 
   // action
-  actionlib::SimpleActionServer<dual_arm_srv::PickupAction> pickup_as_;
-  const std::string kPickupActionName{"pickup"};
-  dual_arm_srv::PickupResult pickup_result_;
-  dual_arm_srv::PickupFeedback pickup_feedback_;
-  actionlib::SimpleActionServer<dual_arm_srv::PlaceAction> place_as_;
-  const std::string kPlaceActionName{"place"};
-  dual_arm_srv::PlaceResult place_result_;
-  dual_arm_srv::PlaceFeedback place_feedback_;
+  actionlib::SimpleActionServer<dual_arm_as::PickupAction> pickup_as_;
+  dual_arm_as::PickupResult pickup_result_;
+  dual_arm_as::PickupFeedback pickup_feedback_;
+  actionlib::SimpleActionServer<dual_arm_as::PlaceAction> place_as_;
+  dual_arm_as::PlaceResult place_result_;
+  dual_arm_as::PlaceFeedback place_feedback_;
 };
 }  // namespace g1_controller
