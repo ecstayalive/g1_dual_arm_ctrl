@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
   // prepare
   ros::Time start_time = ros::Time::now();
   while ((ros::Time::now() - start_time).toSec() < 1.0) {
-    g1_arm_controller.low_cmd_.left_arm.setControlGain(0., 2.0);
+    g1_arm_controller.low_cmd_.setControlGain(0., 2.0);
   }
   g1_arm_controller.actionPickupAndPlaceBox();
   ros::waitForShutdown();

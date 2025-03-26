@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
       0.f, M_PI_2f32, 0.f, 0.f, 0.f;
 
   // Initialize arm
-  Eigen::VectorXf cur_q, cmd_q(init_pos);
+  Eigen::VectorXf cur_q(14), cmd_q(init_pos);
   arm_api.recv();
   arm_api.getState(low_state);
   low_state.getQ(cur_q);
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
     std::this_thread::sleep_for(sleep_time);
   }
 
-  // Lift arm
+  // Reset arm
   period = 5.0f;
   num_time_steps = static_cast<int>(period / control_dt);
   for (int i{0}; i < num_time_steps; ++i) {

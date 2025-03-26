@@ -12,8 +12,9 @@ int main(int argc, char** argv) {
   g1_arm_controller.setSimArmApi();
   // prepare
   ros::Time start_time = ros::Time::now();
-
-  // g1_arm_controller.actionPickupAndPlaceBox();
+  while ((ros::Time::now() - start_time).toSec() < 1.0) {
+    g1_arm_controller.low_cmd_.setControlGain(0., 2.0);
+  }
   ros::waitForShutdown();
   return 0;
 }

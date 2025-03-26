@@ -100,7 +100,7 @@ class G1DualArmAPI : public DualArmAPI {
   }
 
  private:
-  uint32_t crc32Core(uint32_t* ptr, uint32_t len) {
+  uint32_t crc32Core(const uint32_t* ptr, uint32_t len) {
     uint32_t xbit = 0;
     uint32_t data = 0;
     uint32_t CRC32 = 0xFFFFFFFF;

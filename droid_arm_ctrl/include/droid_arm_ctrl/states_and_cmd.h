@@ -36,10 +36,24 @@ struct ArmLowCmd {
     std::copy(kp.data(), kp.data() + kp.size(), this->kp.data());
     std::copy(kd.data(), kd.data() + kd.size(), this->kd.data());
   }
+  void getControlGain(Eigen::Ref<Eigen::VectorXf> kp,
+                      Eigen::Ref<Eigen::VectorXf> kd) {
+    kp = Eigen::Map<Eigen::VectorXf>(this->kp.data(), this->kp.size());
+    kd = Eigen::Map<Eigen::VectorXf>(this->kd.data(), this->kd.size());
+  };
+  Eigen::Map<const Eigen::VectorXf> getControlGainKp() {
+    return Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
+  };
+  Eigen::Map<const Eigen::VectorXf> getControlGainKd() {
+    return Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
+  };
   void setQ(const Eigen::Ref<const Eigen::VectorXf>& q) {
     assert(this->q.size() == q.size());
     std::copy(q.data(), q.data() + q.size(), this->q.data());
   };
+  Eigen::Map<const Eigen::VectorXf> getQ() const {
+    return Eigen::Map<const Eigen::VectorXf>(this->q.data(), this->q.size());
+  }
   void setDq(const Eigen::Ref<const Eigen::VectorXf>& dq) {
     assert(this->dq.size() == dq.size());
     std::copy(dq.data(), dq.data() + dq.size(), this->dq.data());
@@ -61,6 +75,12 @@ struct G1DualArmLowCmd {
   void setQ(Eigen::Ref<const Eigen::VectorXf> q) {
     left_arm.setQ(q.head<7>());
     right_arm.setQ(q.tail<7>());
+  }
+  const Eigen::VectorXf getQ() const {
+    Eigen::VectorXf q(14);
+    q.head<7>() = left_arm.getQ();
+    q.tail<7>() = right_arm.getQ();
+    return q;
   }
   void setDq(Eigen::Ref<const Eigen::VectorXf> dq) {
     left_arm.setDq(dq.head<7>());

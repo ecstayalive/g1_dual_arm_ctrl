@@ -18,7 +18,6 @@ class G1Controller {
   G1Controller(const ros::NodeHandle &handle);
 
   ~G1Controller();
-  void ctrl() {};
 
   void actionPickupAndPlaceBox();
   void actionPickupBox(const actionlib::SimpleActionServer<
@@ -40,9 +39,9 @@ class G1Controller {
     communication_ = std::thread([this]() {
       ros::Rate rate(100);
       while (communication_enabled_) {
+        api_ptr_->setCmd(low_cmd_);
         api_ptr_->send();
         api_ptr_->recv();
-        api_ptr_->setCmd(low_cmd_);
         api_ptr_->getState(low_state_);
         rate.sleep();
       }
@@ -57,9 +56,9 @@ class G1Controller {
     communication_ = std::thread([this]() {
       ros::Rate rate(100);
       while (communication_enabled_) {
+        api_ptr_->setCmd(low_cmd_);
         api_ptr_->send();
         api_ptr_->recv();
-        api_ptr_->setCmd(low_cmd_);
         api_ptr_->getState(low_state_);
         rate.sleep();
       }
@@ -92,5 +91,8 @@ class G1Controller {
   actionlib::SimpleActionServer<dual_arm_as::PlaceAction> place_as_;
   dual_arm_as::PlaceResult place_result_;
   dual_arm_as::PlaceFeedback place_feedback_;
+
+  Eigen::VectorXf prev_goal_q_;
+  bool is_init_{false};
 };
 }  // namespace g1_controller

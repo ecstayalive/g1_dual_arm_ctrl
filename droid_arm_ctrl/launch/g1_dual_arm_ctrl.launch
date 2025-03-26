@@ -9,5 +9,4 @@
     </include>
     <node name="droid_arm_ctrl" pkg="droid_arm_ctrl" type="droid_arm_ctrl_node"
         output="screen" />
-
 </launch>

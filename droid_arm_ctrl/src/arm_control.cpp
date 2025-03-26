@@ -19,6 +19,7 @@ G1Controller::G1Controller(const ros::NodeHandle &handle)
   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmPlanner>(handle);
   pickup_as_.start();
   place_as_.start();
+  prev_goal_q_.setZero(14);
   //   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmModel>(handle);
 }
 
@@ -52,17 +53,22 @@ void G1Controller::actionPickupAndPlaceBox() {
   std::cout << "left_find_ik:" << left_find_ik
             << "\nright_find_ik: " << right_find_ik
             << "\ngoal_q: " << goal_q.transpose() << std::endl;
-  low_state_.getQ(prev_q);
+  if (is_init_) {
+    prev_q = prev_goal_q_;
+  } else {
+    low_state_.getQ(prev_q);
+    is_init_ = true;
+  }
   simplePlanAndMove(3.0, prev_q, goal_q);
   // stage 2
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.33, 0.14, 0.69;
+  left_arm_target_pose.translation() << 0.33, 0.12, 0.69;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -84,9 +90,9 @@ void G1Controller::actionPickupAndPlaceBox() {
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
   left_arm_target_pose.translation() << 0.38, 0.14, 0.9;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
@@ -106,7 +112,11 @@ void G1Controller::actionPickupAndPlaceBox() {
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.32, 0.15, 0.68;
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
+  left_arm_target_pose.translation() << 0.32, 0.12, 0.68;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -134,6 +144,9 @@ void G1Controller::actionPickupAndPlaceBox() {
   right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                                right_arm_target_pose,
                                                low_state_.getQ(), goal_q);
+  std::cout << "left_find_ik:" << left_find_ik
+            << "\nright_find_ik: " << right_find_ik
+            << "\ngoal_q: " << goal_q.transpose() << std::endl;
   simplePlanAndMove(2., prev_q, goal_q);
 }
 
@@ -161,8 +174,14 @@ void G1Controller::actionPickupBox(
   right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                                right_arm_target_pose,
                                                low_state_.getQ(), goal_q);
-  std::cout << "goal q: " << goal_q.transpose() << std::endl;
-  low_state_.getQ(prev_q);
+  std::cout << "find_ik: " << (left_find_ik && right_find_ik)
+            << "\ngoal q: " << goal_q.transpose() << std::endl;
+  if (is_init_) {
+    prev_q = prev_goal_q_;
+  } else {
+    low_state_.getQ(prev_q);
+    is_init_ = true;
+  }
   simplePlanAndMove(3.0, prev_q, goal_q);
   pickup_feedback_.progress = 0.33f;
   pickup_as_.publishFeedback(pickup_feedback_);
@@ -170,11 +189,11 @@ void G1Controller::actionPickupBox(
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.33, 0.14, 0.69;
+  left_arm_target_pose.translation() << 0.33, 0.12, 0.69;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -184,7 +203,8 @@ void G1Controller::actionPickupBox(
   right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                                right_arm_target_pose,
                                                low_state_.getQ(), goal_q);
-  std::cout << "goal q: " << goal_q.transpose() << std::endl;
+  std::cout << "find_ik: " << (left_find_ik && right_find_ik)
+            << "\ngoal q: " << goal_q.transpose() << std::endl;
   simplePlanAndMove(5.4, prev_q, goal_q);
   pickup_feedback_.progress = 0.66f;
   pickup_as_.publishFeedback(pickup_feedback_);
@@ -196,11 +216,11 @@ void G1Controller::actionPickupBox(
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.38, 0.14, 0.9;
+  left_arm_target_pose.translation() << 0.38, 0.12, 0.9;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -210,7 +230,8 @@ void G1Controller::actionPickupBox(
   right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                                right_arm_target_pose,
                                                low_state_.getQ(), goal_q);
-  std::cout << "goal q: " << goal_q.transpose() << std::endl;
+  std::cout << "find_ik: " << (left_find_ik && right_find_ik)
+            << "\ngoal q: " << goal_q.transpose() << std::endl;
   simplePlanAndMove(4.2, prev_q, goal_q);
   pickup_feedback_.progress = 1.f;
   pickup_as_.publishFeedback(pickup_feedback_);
@@ -221,14 +242,19 @@ void G1Controller::actionPickupBox(
 void G1Controller::actionPlaceBox(
     const actionlib::SimpleActionServer<dual_arm_as::PlaceAction>::GoalConstPtr
         &goal) {
+  place_feedback_.progress = 0.f;
   Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
                     right_arm_target_pose = Eigen::Isometry3d::Identity();
   Eigen::VectorXf goal_q(14), prev_q(14);
   bool left_find_ik, right_find_ik;
-  // stage 4·
+  // stage 4
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
-  left_arm_target_pose.translation() << 0.32, 0.15, 0.68;
+  left_arm_target_pose.rotate(
+      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
+  right_arm_target_pose.rotate(
+      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
+  left_arm_target_pose.translation() << 0.32, 0.12, 0.68;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -238,11 +264,16 @@ void G1Controller::actionPlaceBox(
   right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                                right_arm_target_pose,
                                                low_state_.getQ(), goal_q);
-  std::cout << "left_find_ik:" << left_find_ik
-            << "\nright_find_ik: " << right_find_ik
-            << "\ngoal_q: " << goal_q.transpose() << std::endl;
-  low_state_.getQ(prev_q);
+  std::cout << "find_ik: " << (left_find_ik && right_find_ik)
+            << "\ngoal q: " << goal_q.transpose() << std::endl;
+  if (is_init_) {
+    prev_q = prev_goal_q_;
+  } else {
+    low_state_.getQ(prev_q);
+    is_init_ = true;
+  }
   simplePlanAndMove(5.2, prev_q, goal_q);
+  place_feedback_.progress = 0.5f;
   // stage 5
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -257,7 +288,10 @@ void G1Controller::actionPlaceBox(
   right_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                                right_arm_target_pose,
                                                low_state_.getQ(), goal_q);
+  std::cout << "find_ik: " << (left_find_ik && right_find_ik)
+            << "\ngoal q: " << goal_q.transpose() << std::endl;
   simplePlanAndMove(2., prev_q, goal_q);
+  place_feedback_.progress = 1.f;
   place_result_.success = true;
   place_as_.setSucceeded(place_result_);
 }
@@ -267,16 +301,19 @@ void G1Controller::actionLiftRightArm() {
   Eigen::VectorXf goal_q(14), prev_q(14);
   low_state_.getQ(prev_q);
   low_state_.getQ(goal_q);
-  //   goal_q.head<7>().setZero();
   bool left_find_ik;
   // stage 1
-  right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 4, Eigen::Vector3d::UnitY()));
-  right_arm_target_pose.translation() << 0.3, -0.14, 0.9;
+  right_arm_target_pose.rotate(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.translation() << 0.25, -0.14, 0.9;
   left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                               right_arm_target_pose,
                                               low_state_.getQ(), goal_q);
-  low_state_.getQ(prev_q);
+  if (is_init_) {
+    prev_q = prev_goal_q_;
+  } else {
+    low_state_.getQ(prev_q);
+    is_init_ = true;
+  }
   std::cout << "find_ik:" << left_find_ik << "\ngoal_q: " << goal_q.transpose()
             << std::endl;
   if (left_find_ik) simplePlanAndMove(4.0, prev_q, goal_q);
@@ -284,8 +321,8 @@ void G1Controller::actionLiftRightArm() {
   prev_q = goal_q;
   right_arm_target_pose.setIdentity();
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
-  right_arm_target_pose.translation() << 0.38, -0.14, 0.82;
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitY()));
+  right_arm_target_pose.translation() << 0.4, -0.14, 0.82;
   left_find_ik = arm_model_->inverseKinematic(g1_dual_arm::G1ArmEnum::RightArm,
                                               right_arm_target_pose,
                                               low_state_.getQ(), goal_q);
@@ -304,6 +341,7 @@ void G1Controller::simplePlanAndMove(
     low_cmd_.setControlGain(80.f, 1.f);
     low_cmd_.setQ(interpolation_fn((ros::Time::now() - start_time).toSec()));
   }
+  prev_goal_q_ = end_q;
 }
 
 }  // namespace g1_controller
