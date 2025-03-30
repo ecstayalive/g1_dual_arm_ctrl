@@ -23,7 +23,8 @@ struct ArmLowCmd {
     this->kp.assign(dof, kp);
     this->kd.assign(dof, kd);
   };
-  void setControlGain(std::vector<float> kp, std::vector<float> kd) {
+  void setControlGain(const std::vector<float>& kp,
+                      const std::vector<float>& kd) {
     assert(this->kp.size() == kp.size());
     assert(this->kd.size() == kd.size());
     this->kp = kp;
@@ -37,31 +38,47 @@ struct ArmLowCmd {
     std::copy(kd.data(), kd.data() + kd.size(), this->kd.data());
   }
   void getControlGain(Eigen::Ref<Eigen::VectorXf> kp,
-                      Eigen::Ref<Eigen::VectorXf> kd) {
-    kp = Eigen::Map<Eigen::VectorXf>(this->kp.data(), this->kp.size());
-    kd = Eigen::Map<Eigen::VectorXf>(this->kd.data(), this->kd.size());
+                      Eigen::Ref<Eigen::VectorXf> kd) const {
+    kp = Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
+    kd = Eigen::Map<const Eigen::VectorXf>(this->kd.data(), this->kd.size());
   };
-  Eigen::Map<const Eigen::VectorXf> getControlGainKp() {
+  Eigen::Map<const Eigen::VectorXf> getControlGainKp() const {
     return Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
   };
-  Eigen::Map<const Eigen::VectorXf> getControlGainKd() {
+  Eigen::Map<const Eigen::VectorXf> getControlGainKd() const {
     return Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
   };
   void setQ(const Eigen::Ref<const Eigen::VectorXf>& q) {
     assert(this->q.size() == q.size());
     std::copy(q.data(), q.data() + q.size(), this->q.data());
   };
-  Eigen::Map<const Eigen::VectorXf> getQ() const {
+  void getQ(Eigen::Ref<Eigen::VectorXf> q) const {
+    q = Eigen::Map<const Eigen::VectorXf>(this->q.data(), this->q.size());
+  }
+  [[nodiscard]] Eigen::Map<const Eigen::VectorXf> getQ() const {
     return Eigen::Map<const Eigen::VectorXf>(this->q.data(), this->q.size());
   }
   void setDq(const Eigen::Ref<const Eigen::VectorXf>& dq) {
     assert(this->dq.size() == dq.size());
     std::copy(dq.data(), dq.data() + dq.size(), this->dq.data());
   };
+  void getDq(Eigen::Ref<Eigen::VectorXf> dq) const {
+    dq = Eigen::Map<const Eigen::VectorXf>(this->dq.data(), this->dq.size());
+  }
+  [[nodiscard]] Eigen::Map<const Eigen::VectorXf> getDq() const {
+    return Eigen::Map<const Eigen::VectorXf>(this->dq.data(), this->dq.size());
+  }
   void setTau(const Eigen::Ref<const Eigen::VectorXf>& tau) {
     assert(this->tau.size() == tau.size());
     std::copy(tau.data(), tau.data() + tau.size(), this->tau.data());
   };
+  void getTau(Eigen::Ref<Eigen::VectorXf> tau) const {
+    tau = Eigen::Map<const Eigen::VectorXf>(this->tau.data(), this->tau.size());
+  }
+  [[nodiscard]] Eigen::Map<const Eigen::VectorXf> getTau() const {
+    return Eigen::Map<const Eigen::VectorXf>(this->tau.data(),
+                                             this->tau.size());
+  }
   std::vector<float> q;
   std::vector<float> dq;
   std::vector<float> tau;
@@ -72,11 +89,12 @@ struct ArmLowCmd {
 
 struct G1DualArmLowCmd {
   ArmLowCmd left_arm, right_arm;
+  bool enable{false};
   void setQ(Eigen::Ref<const Eigen::VectorXf> q) {
     left_arm.setQ(q.head<7>());
     right_arm.setQ(q.tail<7>());
   }
-  const Eigen::VectorXf getQ() const {
+  [[nodiscard]] const Eigen::VectorXf getQ() const {
     Eigen::VectorXf q(14);
     q.head<7>() = left_arm.getQ();
     q.tail<7>() = right_arm.getQ();
@@ -85,6 +103,12 @@ struct G1DualArmLowCmd {
   void setDq(Eigen::Ref<const Eigen::VectorXf> dq) {
     left_arm.setDq(dq.head<7>());
     right_arm.setDq(dq.tail<7>());
+  }
+  [[nodiscard]] const Eigen::VectorXf getDq() const {
+    Eigen::VectorXf dq(14);
+    dq.head<7>() = left_arm.getDq();
+    dq.tail<7>() = right_arm.getDq();
+    return dq;
   }
   void setControlGain(const float& kp, const float& kd) {
     left_arm.setControlGain(kp, kd);
@@ -95,9 +119,24 @@ struct G1DualArmLowCmd {
     left_arm.setControlGain(kp.head<7>(), kd.head<7>());
     right_arm.setControlGain(kp.tail<7>(), kd.tail<7>());
   }
+  [[nodiscard]] Eigen::VectorXf getControlGainKp() const {
+    Eigen::VectorXf kp(14);
+    kp << left_arm.getControlGainKp(), right_arm.getControlGainKp();
+    return kp;
+  }
+  [[nodiscard]] Eigen::VectorXf getControlGainKd() const {
+    Eigen::VectorXf kd(14);
+    kd << left_arm.getControlGainKd(), right_arm.getControlGainKd();
+    return kd;
+  }
   void setTau(Eigen::Ref<const Eigen::VectorXf> tau) {
     left_arm.setTau(tau.head<7>());
     right_arm.setTau(tau.tail<7>());
+  }
+  [[nodiscard]] const Eigen::VectorXf getTau() const {
+    Eigen::VectorXf tau(14);
+    tau << left_arm.getTau(), right_arm.getTau();
+    return tau;
   }
 };
 
@@ -147,7 +186,7 @@ struct ArmLowState {
 
 struct G1DualArmLowState {
   ArmLowState left_arm, right_arm;
-  uint32_t tick;
+  uint32_t tick{0};
   void getQ(Eigen::Ref<Eigen::VectorXf> q) {
     left_arm.getQ(q.head<7>());
     right_arm.getQ(q.tail<7>());

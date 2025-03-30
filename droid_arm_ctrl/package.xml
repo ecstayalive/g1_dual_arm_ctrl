@@ -68,8 +68,8 @@
   <build_depend>rosbag</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <depend>unitree_legged_msgs</depend>
-  <depend>actionlib</depend>
   <depend>dual_arm_as</depend>
+  <depend>sensor_msgs</depend>
   <build_depend>pinocchio</build_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>

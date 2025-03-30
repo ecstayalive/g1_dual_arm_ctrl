@@ -19,11 +19,12 @@ G1Controller::G1Controller(const ros::NodeHandle &handle)
   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmPlanner>(handle);
   pickup_as_.start();
   place_as_.start();
-  prev_goal_q_.setZero(14);
+  goal_q_hist_.setZero(14);
   //   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmModel>(handle);
 }
 
 G1Controller::~G1Controller() {
+  low_cmd_.setControlGain(0.f, 1.f);
   communication_enabled_ = false;
   if (communication_.joinable()) {
     communication_.join();
@@ -54,7 +55,7 @@ void G1Controller::actionPickupAndPlaceBox() {
             << "\nright_find_ik: " << right_find_ik
             << "\ngoal_q: " << goal_q.transpose() << std::endl;
   if (is_init_) {
-    prev_q = prev_goal_q_;
+    prev_q = goal_q_hist_;
   } else {
     low_state_.getQ(prev_q);
     is_init_ = true;
@@ -153,6 +154,12 @@ void G1Controller::actionPickupAndPlaceBox() {
 void G1Controller::actionPickupBox(
     const actionlib::SimpleActionServer<dual_arm_as::PickupAction>::GoalConstPtr
         &goal) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  if (!goal->pickup) {
+    pickup_result_.success = false;
+    pickup_as_.setAborted(pickup_result_, "Pickup action not performed");
+    return;
+  }
   pickup_feedback_.progress = 0.f;
   pickup_as_.publishFeedback(pickup_feedback_);
   Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
@@ -177,7 +184,7 @@ void G1Controller::actionPickupBox(
   std::cout << "find_ik: " << (left_find_ik && right_find_ik)
             << "\ngoal q: " << goal_q.transpose() << std::endl;
   if (is_init_) {
-    prev_q = prev_goal_q_;
+    prev_q = goal_q_hist_;
   } else {
     low_state_.getQ(prev_q);
     is_init_ = true;
@@ -193,7 +200,7 @@ void G1Controller::actionPickupBox(
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.33, 0.12, 0.69;
+  left_arm_target_pose.translation() << 0.25, 0.15, 0.69;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -220,7 +227,7 @@ void G1Controller::actionPickupBox(
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.38, 0.12, 0.9;
+  left_arm_target_pose.translation() << 0.25, 0.15, 0.9;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -242,6 +249,12 @@ void G1Controller::actionPickupBox(
 void G1Controller::actionPlaceBox(
     const actionlib::SimpleActionServer<dual_arm_as::PlaceAction>::GoalConstPtr
         &goal) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  if (!goal->place) {
+    place_result_.success = false;
+    place_as_.setSucceeded(place_result_, "Place action not performed");
+    return;
+  }
   place_feedback_.progress = 0.f;
   Eigen::Isometry3d left_arm_target_pose = Eigen::Isometry3d::Identity(),
                     right_arm_target_pose = Eigen::Isometry3d::Identity();
@@ -254,7 +267,7 @@ void G1Controller::actionPlaceBox(
       Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
-  left_arm_target_pose.translation() << 0.32, 0.12, 0.68;
+  left_arm_target_pose.translation() << 0.25, 0.15, 0.68;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -267,7 +280,7 @@ void G1Controller::actionPlaceBox(
   std::cout << "find_ik: " << (left_find_ik && right_find_ik)
             << "\ngoal q: " << goal_q.transpose() << std::endl;
   if (is_init_) {
-    prev_q = prev_goal_q_;
+    prev_q = goal_q_hist_;
   } else {
     low_state_.getQ(prev_q);
     is_init_ = true;
@@ -278,7 +291,7 @@ void G1Controller::actionPlaceBox(
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.12, 0.32, 0.63;
+  left_arm_target_pose.translation() << 0.10, 0.32, 0.63;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -309,7 +322,7 @@ void G1Controller::actionLiftRightArm() {
                                               right_arm_target_pose,
                                               low_state_.getQ(), goal_q);
   if (is_init_) {
-    prev_q = prev_goal_q_;
+    prev_q = goal_q_hist_;
   } else {
     low_state_.getQ(prev_q);
     is_init_ = true;
@@ -337,11 +350,24 @@ void G1Controller::simplePlanAndMove(
   math_utils::QuinticInterpolationFn<Eigen::VectorXf> interpolation_fn;
   interpolation_fn.setPolyInterpolationKernel(period, start_q, end_q);
   ros::Time start_time = ros::Time::now();
-  while ((ros::Time::now() - start_time).toSec() < period) {
+  // Get theoretical torque
+  while ((ros::Time::now() - start_time).toSec() < period && ros::ok()) {
+    Eigen::VectorXf cmd_q =
+        interpolation_fn((ros::Time::now() - start_time).toSec());
+    Eigen::VectorXf desired_tau =
+        low_cmd_.getControlGainKp().cwiseProduct(cmd_q - low_state_.getQ()) -
+        low_cmd_.getControlGainKd().cwiseProduct(low_state_.getDq());
+    Eigen::VectorXf real_tau = low_state_.getTau();
+    // if (desired_tau.cwiseAbs().mean() > 24.0) {
+    //   break;
+    // } else {
+    std::cout << "desired_tau: " << desired_tau.transpose()
+              << "\nreal_tau: " << real_tau.transpose() << std::endl;
     low_cmd_.setControlGain(80.f, 1.f);
-    low_cmd_.setQ(interpolation_fn((ros::Time::now() - start_time).toSec()));
+    low_cmd_.setQ(cmd_q);
+    // }
   }
-  prev_goal_q_ = end_q;
+  goal_q_hist_ = end_q;
 }
 
 }  // namespace g1_controller

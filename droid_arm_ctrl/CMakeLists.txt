@@ -6,30 +6,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POLICY_DEFAULT_CMP0148 NEW)
 
 find_package(Eigen3 REQUIRED)
-add_subdirectory(third_party/unitree_sdk2)
-
 # # Find catkin macros and libraries
 # # if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 # # is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp rospy std_msgs
-  moveit_core moveit_core
-  unitree_legged_msgs
-  rosbag
-  pcl_ros
-  pluginlib
-  geometry_msgs
-  moveit_ros_planning
-  moveit_ros_perception
-  rviz_visual_tools
-  moveit_visual_tools
-  geometric_shapes
-  pcl_conversions
-  moveit_ros_planning_interface
-  actionlib
-  dual_arm_as
+roscpp rospy std_msgs sensor_msgs
+moveit_core moveit_core
+unitree_legged_msgs
+rosbag
+pcl_ros
+pluginlib
+geometry_msgs
+moveit_ros_planning
+moveit_ros_perception
+rviz_visual_tools
+moveit_visual_tools
+geometric_shapes
+pcl_conversions
+moveit_ros_planning_interface
+dual_arm_as
 )
 find_package(pinocchio REQUIRED)
+add_subdirectory(third_party/unitree_sdk2)
 
 # # modules and global scripts declared therein get installed
 # # See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -111,13 +109,13 @@ find_package(pinocchio REQUIRED)
 # # DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
+  # LIBRARIES droid_arm_ctrl
   CATKIN_DEPENDS unitree_legged_msgs
-  dual_arm_as
   moveit_core
   moveit_visual_tools
   moveit_ros_planning_interface
-
-  # DEPENDS system_lib
+  dual_arm_as
+  DEPENDS EIGEN3
 )
 
 # ##########
@@ -145,7 +143,7 @@ include_directories(
 # # With catkin_make all packages are built within a single CMake context
 # # The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node src/main.cpp src/arm_control.cpp)
-add_dependencies(${PROJECT_NAME}_node ${catkin_EXPORTED_TARGETS} ${dual_arm_as_EXPORTED_TARGETS} unitree_legged_msgs_gencpp)
+add_dependencies(${PROJECT_NAME}_node  ${dual_arm_as_EXPORTED_TARGETS} ${unitree_legged_msgs_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   pinocchio::pinocchio
@@ -153,7 +151,7 @@ target_link_libraries(${PROJECT_NAME}_node
 )
 
 add_executable(sim_gazebo src/sim_main.cpp src/arm_control.cpp)
-add_dependencies(sim_gazebo ${catkin_EXPORTED_TARGETS} ${dual_arm_as_EXPORTED_TARGETS} unitree_legged_msgs_gencpp)
+add_dependencies(sim_gazebo  ${dual_arm_as_EXPORTED_TARGETS} ${unitree_legged_msgs_EXPORTED_TARGETS})
 target_link_libraries(sim_gazebo
   ${catkin_LIBRARIES}
   pinocchio::pinocchio

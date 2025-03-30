@@ -1,13 +1,50 @@
-#include <droid_arm_ctrl/arm_api.h>
-
 #include <chrono>
 #include <cmath>
 #include <thread>
 
+#include "droid_arm_ctrl/arm_api.h"
+#include "droid_arm_ctrl/utils.h"
+
+class TestApi {
+ public:
+  TestApi() {
+    api_ptr_ = std::make_unique<sdk::G1DualArmAPI>();
+    if (communication_.joinable()) {
+      communication_.join();
+    }
+    communication_ = std::thread([this]() {
+      utils::Rate rate(200);
+      while (communication_enabled_) {
+        api_ptr_->setCmd(low_cmd_);
+        api_ptr_->send();
+        api_ptr_->recv();
+        api_ptr_->getState(low_state_);
+        rate.sleep();
+      }
+    });
+    while (low_state_.tick == 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+  }
+
+  ~TestApi() {
+    communication_enabled_ = false;
+    if (communication_.joinable()) {
+      communication_.join();
+    }
+  }
+
+ public:
+  std::unique_ptr<sdk::G1DualArmAPI> api_ptr_;
+  std::thread communication_;
+  bool communication_enabled_{true};
+
+  sdk::G1DualArmLowCmd low_cmd_;
+  sdk::G1DualArmLowState low_state_;
+};
+
 int main(int argc, char **argv) {
-  sdk::G1DualArmAPI arm_api;
-  sdk::G1DualArmLowCmd low_cmd;
-  sdk::G1DualArmLowState low_state;
+  TestApi test_api;
 
   float control_dt{0.02f};
   float max_joint_vel = 0.5f;
@@ -21,21 +58,15 @@ int main(int argc, char **argv) {
 
   // Initialize arm
   Eigen::VectorXf cur_q(14), cmd_q(init_pos);
-  arm_api.recv();
-  arm_api.getState(low_state);
-  low_state.getQ(cur_q);
+  test_api.low_state_.getQ(cur_q);
   float period = 2.f;
   int num_time_steps = static_cast<int>(period / control_dt);
   for (int i{0}; i < num_time_steps; ++i) {
     float phase = static_cast<float>(i) / num_time_steps;
-    low_cmd.setQ(cur_q * (1 - phase) + phase * init_pos);
-    low_cmd.setDq(Eigen::VectorXf::Zero(14));
-    low_cmd.setTau(Eigen::VectorXf::Zero(14));
-    low_cmd.setControlGain(40.f, 1.0f);
-    arm_api.setCmd(low_cmd);
-    arm_api.send();
-    arm_api.recv();
-    arm_api.getState(low_state);
+    test_api.low_cmd_.setQ(cur_q * (1 - phase) + phase * init_pos);
+    test_api.low_cmd_.setDq(Eigen::VectorXf::Zero(14));
+    test_api.low_cmd_.setTau(Eigen::VectorXf::Zero(14));
+    test_api.low_cmd_.setControlGain(40.f, 1.0f);
     std::this_thread::sleep_for(sleep_time);
   }
 
@@ -43,15 +74,11 @@ int main(int argc, char **argv) {
   period = 5.0f;
   num_time_steps = static_cast<int>(period / control_dt);
   for (int i{0}; i < num_time_steps; ++i) {
-    arm_api.recv();
-    arm_api.getState(low_state);
     cmd_q += (target_pos - cmd_q).cwiseMax(-max_dq).cwiseMin(max_dq);
-    low_cmd.setQ(cmd_q);
-    low_cmd.setDq(Eigen::VectorXf::Zero(14));
-    low_cmd.setTau(Eigen::VectorXf::Zero(14));
-    low_cmd.setControlGain(40.f, 1.0f);
-    arm_api.setCmd(low_cmd);
-    arm_api.send();
+    test_api.low_cmd_.setQ(cmd_q);
+    test_api.low_cmd_.setDq(Eigen::VectorXf::Zero(14));
+    test_api.low_cmd_.setTau(Eigen::VectorXf::Zero(14));
+    test_api.low_cmd_.setControlGain(40.f, 1.0f);
     std::this_thread::sleep_for(sleep_time);
   }
 
@@ -59,15 +86,11 @@ int main(int argc, char **argv) {
   period = 5.0f;
   num_time_steps = static_cast<int>(period / control_dt);
   for (int i{0}; i < num_time_steps; ++i) {
-    arm_api.recv();
-    arm_api.getState(low_state);
     cmd_q += (init_pos - cmd_q).cwiseMax(-max_dq).cwiseMin(max_dq);
-    low_cmd.setQ(cmd_q);
-    low_cmd.setDq(Eigen::VectorXf::Zero(14));
-    low_cmd.setTau(Eigen::VectorXf::Zero(14));
-    low_cmd.setControlGain(40.f, 1.f);
-    arm_api.setCmd(low_cmd);
-    arm_api.send();
+    test_api.low_cmd_.setQ(cmd_q);
+    test_api.low_cmd_.setDq(Eigen::VectorXf::Zero(14));
+    test_api.low_cmd_.setTau(Eigen::VectorXf::Zero(14));
+    test_api.low_cmd_.setControlGain(40.f, 1.f);
     std::this_thread::sleep_for(sleep_time);
   }
 

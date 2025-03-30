@@ -4,7 +4,7 @@
 #include "droid_arm_ctrl/arm_control.h"
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "g1_arm_controller");
+  ros::init(argc, argv, "g1_arm_same_ctrl");
   ros::NodeHandle handle;
   ros::AsyncSpinner spinner(4);
   spinner.start();
