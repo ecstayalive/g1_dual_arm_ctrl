@@ -20,11 +20,12 @@ G1Controller::G1Controller(const ros::NodeHandle &handle)
   pickup_as_.start();
   place_as_.start();
   goal_q_hist_.setZero(14);
+  joint_tau_limit << 22, 22, 22, 22, 22, 4.5, 4.5, 22, 22, 22, 22, 22, 4.5, 4.5;
   //   arm_model_ = std::make_unique<g1_dual_arm::G1DualArmModel>(handle);
 }
 
 G1Controller::~G1Controller() {
-  low_cmd_.setControlGain(0.f, 1.f);
+  low_cmd_.setControlGain(0.f, 2.f);
   communication_enabled_ = false;
   if (communication_.joinable()) {
     communication_.join();
@@ -60,7 +61,10 @@ void G1Controller::actionPickupAndPlaceBox() {
     low_state_.getQ(prev_q);
     is_init_ = true;
   }
-  simplePlanAndMove(3.0, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(3.0, prev_q, goal_q)) {
+    return;
+  }
   // stage 2
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -69,7 +73,7 @@ void G1Controller::actionPickupAndPlaceBox() {
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.33, 0.12, 0.69;
+  left_arm_target_pose.translation() << 0.33, 0.15, 0.69;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -82,7 +86,10 @@ void G1Controller::actionPickupAndPlaceBox() {
   std::cout << "left_find_ik:" << left_find_ik
             << "\nright_find_ik: " << right_find_ik
             << "\ngoal_q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(5.4, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(5.4, prev_q, goal_q)) {
+    return;
+  }
   // stage 3
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -95,7 +102,7 @@ void G1Controller::actionPickupAndPlaceBox() {
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.38, 0.14, 0.9;
+  left_arm_target_pose.translation() << 0.38, 0.15, 0.9;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -108,7 +115,10 @@ void G1Controller::actionPickupAndPlaceBox() {
   std::cout << "left_find_ik:" << left_find_ik
             << "\nright_find_ik: " << right_find_ik
             << "\ngoal_q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(4.2, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(4.2, prev_q, goal_q)) {
+    return;
+  }
   // stage 4
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -117,7 +127,7 @@ void G1Controller::actionPickupAndPlaceBox() {
       Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
-  left_arm_target_pose.translation() << 0.32, 0.12, 0.68;
+  left_arm_target_pose.translation() << 0.32, 0.15, 0.68;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -130,7 +140,10 @@ void G1Controller::actionPickupAndPlaceBox() {
   std::cout << "left_find_ik:" << left_find_ik
             << "\nright_find_ik: " << right_find_ik
             << "\ngoal_q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(5.2, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(5.2, prev_q, goal_q)) {
+    return;
+  }
   // stage 5
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
@@ -148,7 +161,9 @@ void G1Controller::actionPickupAndPlaceBox() {
   std::cout << "left_find_ik:" << left_find_ik
             << "\nright_find_ik: " << right_find_ik
             << "\ngoal_q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(2., prev_q, goal_q);
+  if (left_find_ik && right_find_ik && !simplePlanAndMove(2., prev_q, goal_q)) {
+    return;
+  }
 }
 
 void G1Controller::actionPickupBox(
@@ -189,18 +204,24 @@ void G1Controller::actionPickupBox(
     low_state_.getQ(prev_q);
     is_init_ = true;
   }
-  simplePlanAndMove(3.0, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(3.0, prev_q, goal_q)) {
+    pickup_result_.success = false;
+    pickup_as_.setAborted(
+        pickup_result_, "Pickup action failed due to dangerous joint effector");
+    return;
+  }
   pickup_feedback_.progress = 0.33f;
   pickup_as_.publishFeedback(pickup_feedback_);
   // stage 2
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.25, 0.15, 0.69;
+  left_arm_target_pose.translation() << 0.27, 0.15, 0.69;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -212,7 +233,13 @@ void G1Controller::actionPickupBox(
                                                low_state_.getQ(), goal_q);
   std::cout << "find_ik: " << (left_find_ik && right_find_ik)
             << "\ngoal q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(5.4, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(5.4, prev_q, goal_q)) {
+    pickup_result_.success = false;
+    pickup_as_.setAborted(
+        pickup_result_, "Pickup action failed due to dangerous joint effector");
+    return;
+  }
   pickup_feedback_.progress = 0.66f;
   pickup_as_.publishFeedback(pickup_feedback_);
   // stage 3
@@ -223,11 +250,11 @@ void G1Controller::actionPickupBox(
   right_arm_target_pose.rotate(
       Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitY()));
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
   prev_q = goal_q;
-  left_arm_target_pose.translation() << 0.25, 0.15, 0.9;
+  left_arm_target_pose.translation() << 0.27, 0.15, 0.9;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -239,7 +266,13 @@ void G1Controller::actionPickupBox(
                                                low_state_.getQ(), goal_q);
   std::cout << "find_ik: " << (left_find_ik && right_find_ik)
             << "\ngoal q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(4.2, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(4.2, prev_q, goal_q)) {
+    pickup_result_.success = false;
+    pickup_as_.setAborted(
+        pickup_result_, "Pickup action failed due to dangerous joint effector");
+    return;
+  }
   pickup_feedback_.progress = 1.f;
   pickup_as_.publishFeedback(pickup_feedback_);
   pickup_result_.success = true;
@@ -260,14 +293,14 @@ void G1Controller::actionPlaceBox(
                     right_arm_target_pose = Eigen::Isometry3d::Identity();
   Eigen::VectorXf goal_q(14), prev_q(14);
   bool left_find_ik, right_find_ik;
-  // stage 4
+  // stage 1
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   left_arm_target_pose.rotate(
-      Eigen::AngleAxisd(-M_PI / 6, Eigen::Vector3d::UnitZ()));
+      Eigen::AngleAxisd(-M_PI / 8, Eigen::Vector3d::UnitZ()));
   right_arm_target_pose.rotate(
-      Eigen::AngleAxisd(M_PI / 6, Eigen::Vector3d::UnitZ()));
-  left_arm_target_pose.translation() << 0.25, 0.15, 0.68;
+      Eigen::AngleAxisd(M_PI / 8, Eigen::Vector3d::UnitZ()));
+  left_arm_target_pose.translation() << 0.27, 0.15, 0.68;
   right_arm_target_pose.translation() = left_arm_target_pose.translation();
   right_arm_target_pose.translation().y() =
       -right_arm_target_pose.translation().y();
@@ -285,9 +318,15 @@ void G1Controller::actionPlaceBox(
     low_state_.getQ(prev_q);
     is_init_ = true;
   }
-  simplePlanAndMove(5.2, prev_q, goal_q);
+  if (left_find_ik && right_find_ik &&
+      !simplePlanAndMove(5.2, prev_q, goal_q)) {
+    place_result_.success = false;
+    place_as_.setAborted(
+        place_result_, "Pickup action failed due to dangerous joint effector");
+    return;
+  }
   place_feedback_.progress = 0.5f;
-  // stage 5
+  // stage 2
   left_arm_target_pose.setIdentity();
   right_arm_target_pose.setIdentity();
   prev_q = goal_q;
@@ -303,7 +342,12 @@ void G1Controller::actionPlaceBox(
                                                low_state_.getQ(), goal_q);
   std::cout << "find_ik: " << (left_find_ik && right_find_ik)
             << "\ngoal q: " << goal_q.transpose() << std::endl;
-  simplePlanAndMove(2., prev_q, goal_q);
+  if (left_find_ik && right_find_ik && !simplePlanAndMove(2., prev_q, goal_q)) {
+    place_result_.success = false;
+    place_as_.setAborted(
+        place_result_, "Pickup action failed due to dangerous joint effector");
+    return;
+  }
   place_feedback_.progress = 1.f;
   place_result_.success = true;
   place_as_.setSucceeded(place_result_);
@@ -329,7 +373,9 @@ void G1Controller::actionLiftRightArm() {
   }
   std::cout << "find_ik:" << left_find_ik << "\ngoal_q: " << goal_q.transpose()
             << std::endl;
-  if (left_find_ik) simplePlanAndMove(4.0, prev_q, goal_q);
+  if (left_find_ik && !simplePlanAndMove(4.0, prev_q, goal_q)) {
+    return;
+  }
   // stage 2
   prev_q = goal_q;
   right_arm_target_pose.setIdentity();
@@ -341,19 +387,29 @@ void G1Controller::actionLiftRightArm() {
                                               low_state_.getQ(), goal_q);
   std::cout << "find_ik:" << left_find_ik << "\ngoal_q: " << goal_q.transpose()
             << std::endl;
-  if (left_find_ik) simplePlanAndMove(4.0, prev_q, goal_q);
+  if (left_find_ik && !simplePlanAndMove(4.0, prev_q, goal_q)) {
+    return;
+  }
 }
 
-void G1Controller::simplePlanAndMove(
+bool G1Controller::simplePlanAndMove(
     double period, const Eigen::Ref<const Eigen::VectorXf> &start_q,
     const Eigen::Ref<const Eigen::VectorXf> &end_q) {
   math_utils::QuinticInterpolationFn<Eigen::VectorXf> interpolation_fn;
   interpolation_fn.setPolyInterpolationKernel(period, start_q, end_q);
   ros::Time start_time = ros::Time::now();
+  ros::Time prev_time = start_time;
   // Get theoretical torque
   while ((ros::Time::now() - start_time).toSec() < period && ros::ok()) {
-    Eigen::VectorXf cmd_q =
-        interpolation_fn((ros::Time::now() - start_time).toSec());
+    double t = (ros::Time::now() - start_time).toSec();
+    double dt = (ros::Time::now() - prev_time).toSec();
+    prev_time = ros::Time::now();
+    if (!checkSafety(low_state_.getTau(), dt)) {
+      low_cmd_.setControlGain(0.f, 2.f);
+      return false;
+    };
+    low_cmd_.setControlGain(80.f, 1.f);
+    Eigen::VectorXf cmd_q = interpolation_fn(t);
     Eigen::VectorXf desired_tau =
         low_cmd_.getControlGainKp().cwiseProduct(cmd_q - low_state_.getQ()) -
         low_cmd_.getControlGainKd().cwiseProduct(low_state_.getDq());
@@ -361,13 +417,13 @@ void G1Controller::simplePlanAndMove(
     // if (desired_tau.cwiseAbs().mean() > 24.0) {
     //   break;
     // } else {
-    std::cout << "desired_tau: " << desired_tau.transpose()
-              << "\nreal_tau: " << real_tau.transpose() << std::endl;
-    low_cmd_.setControlGain(80.f, 1.f);
+    // std::cout << "desired_tau: " << desired_tau.transpose()
+    //           << "\nreal_tau: " << real_tau.transpose() << std::endl;
     low_cmd_.setQ(cmd_q);
     // }
   }
   goal_q_hist_ = end_q;
+  return true;
 }
 
 }  // namespace g1_controller

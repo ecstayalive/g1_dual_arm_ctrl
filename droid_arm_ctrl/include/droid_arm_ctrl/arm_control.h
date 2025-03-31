@@ -22,18 +22,6 @@ class G1Controller {
 
   ~G1Controller();
 
-  void actionPickupAndPlaceBox();
-  void actionPickupBox(const actionlib::SimpleActionServer<
-                       dual_arm_as::PickupAction>::GoalConstPtr &goal);
-  void actionPlaceBox(const actionlib::SimpleActionServer<
-                      dual_arm_as::PlaceAction>::GoalConstPtr &goal);
-
-  void actionLiftRightArm();
-
-  void simplePlanAndMove(double period,
-                         const Eigen::Ref<const Eigen::VectorXf> &start_q,
-                         const Eigen::Ref<const Eigen::VectorXf> &end_q);
-
   void setSimArmApi() {
     api_ptr_ = std::make_unique<sdk::G1DualArmGazeboAPI>(handle_);
     communication();
@@ -51,6 +39,28 @@ class G1Controller {
   void setIntCommApi(const std::string &name = "eth0") {
     api_ptr_ = std::make_unique<sdk::G1DualCommAPI>(handle_, name);
     communication();
+  }
+
+  void actionPickupAndPlaceBox();
+  void actionPickupBox(const actionlib::SimpleActionServer<
+                       dual_arm_as::PickupAction>::GoalConstPtr &goal);
+  void actionPlaceBox(const actionlib::SimpleActionServer<
+                      dual_arm_as::PlaceAction>::GoalConstPtr &goal);
+  void actionLiftRightArm();
+
+  bool simplePlanAndMove(double period,
+                         const Eigen::Ref<const Eigen::VectorXf> &start_q,
+                         const Eigen::Ref<const Eigen::VectorXf> &end_q);
+  bool checkSafety(const Eigen::Ref<const Eigen::VectorXf> &tau,
+                   const double &dt) {
+    int n = ((tau.cwiseAbs() - joint_tau_limit).array() > 0.).count();
+    if (n > 0) {
+      max_tau_time += dt;
+    } else {
+      max_tau_time = std::max(0., max_tau_time - dt);
+    }
+    std::cout << "max_tau_time: " << max_tau_time << std::endl;
+    return max_tau_time <= kTauTimeLimit;
   }
 
  protected:
@@ -102,5 +112,9 @@ class G1Controller {
 
   Eigen::VectorXf goal_q_hist_;
   bool is_init_{false};
+
+  Eigen::Matrix<float, 14, 1> joint_tau_limit;
+  const double kTauTimeLimit{1.0};
+  double max_tau_time{0.0};
 };
 }  // namespace g1_controller

@@ -72,7 +72,7 @@ class G1DualArmPlanner {
   bool inverseKinematic(G1ArmEnum arm_id, const Eigen::Isometry3d &target_pose,
                         const Eigen::Ref<const Eigen::VectorXf> &guess_q,
                         Eigen::Ref<Eigen::VectorXf> q,
-                        const double &timeout = 0.1) {
+                        const double &timeout = 0.005) {
     bool find_ik{false};
     std::vector<double> q_values;
     switch (arm_id) {
@@ -105,6 +105,21 @@ class G1DualArmPlanner {
     }
     // robot_state_->setToDefaultValues();
     return find_ik;
+  }
+
+  Eigen::MatrixXf getJacobian(G1ArmEnum arm_id) {
+    Eigen::MatrixXd jacobian;
+    switch (arm_id) {
+      case G1ArmEnum::LeftArm: {
+        jacobian = robot_state_->getJacobian(left_arm_model_group_,
+                                             Eigen::Vector3d::Zero());
+      }
+      case G1ArmEnum::RightArm: {
+        jacobian = robot_state_->getJacobian(right_arm_model_group_,
+                                             Eigen::Vector3d::Zero());
+      }
+    }
+    return jacobian.cast<float>();
   }
 
   void planning(const Eigen::Ref<const Eigen::VectorXf> &left_arm_target_q,
