@@ -78,6 +78,7 @@ class G1DualArmGazeboAPI : public DualArmAPI {
     arm_state->tau[joint_id] = motor_state->tauEst;
     // TODO: Integrate the kinematic chain into this api
     // arm_state->end_posture.setZero();
+    low_state_.tick = 1;
   }
 
  protected:

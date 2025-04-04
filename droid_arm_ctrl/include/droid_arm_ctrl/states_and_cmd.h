@@ -46,7 +46,7 @@ struct ArmLowCmd {
     return Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
   };
   Eigen::Map<const Eigen::VectorXf> getControlGainKd() const {
-    return Eigen::Map<const Eigen::VectorXf>(this->kp.data(), this->kp.size());
+    return Eigen::Map<const Eigen::VectorXf>(this->kd.data(), this->kd.size());
   };
   void setQ(const Eigen::Ref<const Eigen::VectorXf>& q) {
     assert(this->q.size() == q.size());

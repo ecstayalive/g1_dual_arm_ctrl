@@ -46,6 +46,14 @@ class G1DualArmAPI : public DualArmAPI {
     while (low_state_.tick() == 0) {
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
+    for (int i{0}; i < low_state_.motor_state().size(); ++i) {
+      // low_cmd_.motor_cmd()[i].mode(0);
+      low_cmd_.motor_cmd()[i].kp(0.f);
+      low_cmd_.motor_cmd()[i].kd(1.f);
+      low_cmd_.motor_cmd()[i].q(low_state_.motor_state()[i].q());
+      low_cmd_.motor_cmd()[i].dq(0.f);
+      low_cmd_.motor_cmd()[i].tau(0.f);
+    }
   }
   void send() override { lowcmd_publisher_->Write(low_cmd_); }
   void recv() override {}
@@ -57,26 +65,31 @@ class G1DualArmAPI : public DualArmAPI {
       low_cmd_.motor_cmd()[i].kp(0.f);
       low_cmd_.motor_cmd()[i].kd(0.f);
       low_cmd_.motor_cmd()[i].q(low_state_.motor_state()[i].q());
-      low_cmd_.motor_cmd()[i].dq(low_state_.motor_state()[i].dq());
+      low_cmd_.motor_cmd()[i].dq(0.f);
       low_cmd_.motor_cmd()[i].tau(0.f);
     }
     for (int i{kG1ArmIdxStart_}; i < kG1ArmIdxStart_ + kG1ArmDof_; ++i) {
       low_cmd_.motor_cmd()[i].mode(1);
       low_cmd_.motor_cmd()[i + kG1ArmDof_].mode(1);
-      low_cmd_.motor_cmd()[i].kp(cmd.left_arm.kp[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i + kG1ArmDof_].kp(
-          cmd.right_arm.kp[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i].kd(cmd.left_arm.kd[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i + kG1ArmDof_].kd(
-          cmd.right_arm.kd[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i].q(cmd.left_arm.q[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i + kG1ArmDof_].q(
-          cmd.right_arm.q[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i].dq(cmd.left_arm.dq[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i].dq(cmd.right_arm.dq[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i].tau(cmd.left_arm.tau[i - kG1ArmIdxStart_]);
-      low_cmd_.motor_cmd()[i + kG1ArmDof_].tau(
-          cmd.right_arm.tau[i - kG1ArmIdxStart_]);
+      if (checkJointSafety(cmd, i)) {
+        low_cmd_.motor_cmd()[i].kp(cmd.left_arm.kp[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i].kd(cmd.left_arm.kd[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i].q(cmd.left_arm.q[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i].dq(cmd.left_arm.dq[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i].tau(cmd.left_arm.tau[i - kG1ArmIdxStart_]);
+      }
+      if (checkJointSafety(cmd, i + kG1ArmDof_)) {
+        low_cmd_.motor_cmd()[i + kG1ArmDof_].kp(
+            cmd.right_arm.kp[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i + kG1ArmDof_].kd(
+            cmd.right_arm.kd[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i + kG1ArmDof_].q(
+            cmd.right_arm.q[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i + kG1ArmDof_].dq(
+            cmd.right_arm.dq[i - kG1ArmIdxStart_]);
+        low_cmd_.motor_cmd()[i + kG1ArmDof_].tau(
+            cmd.right_arm.tau[i - kG1ArmIdxStart_]);
+      }
     }
     low_cmd_.crc() =
         crc32Core((uint32_t*)&low_cmd_, (sizeof(low_cmd_) >> 2) - 1);
@@ -141,13 +154,30 @@ class G1DualArmAPI : public DualArmAPI {
     }
   }
 
+  bool checkJointSafety(const G1DualArmLowCmd& cmd, const int& joint_index) {
+    float desired_tau = cmd.getControlGainKp()[joint_index - kG1ArmIdxStart_] *
+                            (cmd.getQ()[joint_index - kG1ArmIdxStart_] -
+                             low_state_.motor_state()[joint_index].q()) +
+                        cmd.getControlGainKd()[joint_index - kG1ArmIdxStart_] *
+                            (cmd.getDq()[joint_index - kG1ArmIdxStart_] -
+                             low_state_.motor_state()[joint_index].dq());
+    if (desired_tau > kG1ArmTauLimit_[joint_index - kG1ArmIdxStart_]) {
+      std::cout << "The command for arm joint(" << joint_index
+                << ") will make joint torque exceed the limit, so the command "
+                   "is ignored."
+                << std::endl;
+      return false;
+    }
+    return true;
+  }
+
  private:
   unitree::robot::ChannelPublisherPtr<unitree_hg::msg::dds_::LowCmd_>
       lowcmd_publisher_;
   unitree::robot::ChannelSubscriberPtr<unitree_hg::msg::dds_::LowState_>
       lowstate_subscriber_;
-  unitree_hg::msg::dds_::LowState_ low_state_;
-  unitree_hg::msg::dds_::LowCmd_ low_cmd_;
+  unitree_hg::msg::dds_::LowState_ low_state_{};
+  unitree_hg::msg::dds_::LowCmd_ low_cmd_{};
   uint8_t mode_machine_{0};
   uint8_t mode_{0};  // PR:0, AB:1
 
@@ -155,6 +185,8 @@ class G1DualArmAPI : public DualArmAPI {
   const int kG1NumMotor_{29};
   const int kG1ArmIdxStart_{15};
   const unsigned int kG1ArmDof_{7};
+  const std::array<float, 14> kG1ArmTauLimit_{25, 25, 25, 25, 25, 5, 5,
+                                              25, 25, 25, 25, 25, 5, 5};
 };
 
 /**
@@ -267,7 +299,7 @@ class G1DualCommAPI : public DualArmAPI {
  protected:
   ros::NodeHandle handle_;
   uint8_t mode_machine_{0};
-  unitree_hg::msg::dds_::LowState_ low_state_;
+  unitree_hg::msg::dds_::LowState_ low_state_{};
   unitree::robot::ChannelSubscriberPtr<unitree_hg::msg::dds_::LowState_>
       lowstate_subscriber_;
   ros::Publisher lowcmd_publisher_;
@@ -289,7 +321,7 @@ class G1DualCommAPI : public DualArmAPI {
       "r_wrist_roll",     "r_wrist_roll_gain",
       "r_wrist_pitch",    "r_wrist_pitch_gain",
       "r_wrist_yaw",      "r_wrist_yaw_gain"};
-  sensor_msgs::JointState msg_;
+  sensor_msgs::JointState msg_{};
   const int kG1NumMotor_{29};
   const int kG1ArmIdxStart_{15};
   const unsigned int kG1ArmDof_{7};

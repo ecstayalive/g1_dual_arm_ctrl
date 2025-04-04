@@ -24,12 +24,12 @@ class G1Controller {
 
   void setSimArmApi() {
     api_ptr_ = std::make_unique<sdk::G1DualArmGazeboAPI>(handle_);
-    communication();
+    setCommunication();
   }
 
   void setArmApi(const std::string &name = "eth0") {
     api_ptr_ = std::make_unique<sdk::G1DualArmAPI>(name);
-    communication();
+    setCommunication();
   }
 
   /**
@@ -38,7 +38,7 @@ class G1Controller {
    */
   void setIntCommApi(const std::string &name = "eth0") {
     api_ptr_ = std::make_unique<sdk::G1DualCommAPI>(handle_, name);
-    communication();
+    setCommunication();
   }
 
   void actionPickupAndPlaceBox();
@@ -53,18 +53,18 @@ class G1Controller {
                          const Eigen::Ref<const Eigen::VectorXf> &end_q);
   bool checkSafety(const Eigen::Ref<const Eigen::VectorXf> &tau,
                    const double &dt) {
-    int n = ((tau.cwiseAbs() - joint_tau_limit).array() > 0.).count();
+    int n = ((tau.cwiseAbs() - joint_tau_limit_).array() > 0.).count();
     if (n > 0) {
       max_tau_time += dt;
     } else {
       max_tau_time = std::max(0., max_tau_time - dt);
     }
-    std::cout << "max_tau_time: " << max_tau_time << std::endl;
+    // std::cout << "max_tau_time: " << max_tau_time << std::endl;
     return max_tau_time <= kTauTimeLimit;
   }
 
  protected:
-  void communication() {
+  void setCommunication() {
     if (communication_.joinable()) {
       communication_.join();
     }
@@ -81,6 +81,8 @@ class G1Controller {
     while (low_state_.tick == 0) {
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
+    low_cmd_.setControlGain(0.f, 1.f);
+    low_cmd_.setQ(low_state_.getQ());
   };
 
   // void dualArmPosePlanAndMove(
@@ -113,7 +115,7 @@ class G1Controller {
   Eigen::VectorXf goal_q_hist_;
   bool is_init_{false};
 
-  Eigen::Matrix<float, 14, 1> joint_tau_limit;
+  Eigen::Matrix<float, 14, 1> joint_tau_limit_;
   const double kTauTimeLimit{1.0};
   double max_tau_time{0.0};
 };

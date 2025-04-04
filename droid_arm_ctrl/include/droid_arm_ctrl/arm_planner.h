@@ -49,6 +49,18 @@ class G1DualArmPlanner {
       ROS_FATAL_STREAM("Could not initialize planner instance");
     ROS_INFO_STREAM("Using planning interface '"
                     << planner_manager_->getDescription() << "'");
+    // Get joint limit of the robot model
+    std::vector<std::string> joint_names =
+        robot_model_->getActiveJointModelNames();
+    for (int i{0}; i < joint_names.size(); ++i) {
+      std::string joint_name{joint_names[i]};
+      const moveit::core::JointModel *joint_model =
+          robot_model_->getJointModel(joint_name);
+      const moveit::core::VariableBounds &bounds =
+          joint_model->getVariableBounds(joint_model->getVariableNames()[0]);
+      joint_limit_.row(i) << bounds.min_position_, bounds.max_position_;
+    }
+    // std::cout << "joint limit:\n" << joint_limit_ << std::endl;
   }
 
   void updateRobotState(const Eigen::Ref<const Eigen::VectorXf> &q,
@@ -120,6 +132,17 @@ class G1DualArmPlanner {
       }
     }
     return jacobian.cast<float>();
+  }
+
+  bool constrainJointPos(Eigen::Ref<Eigen::VectorXf> joint_q) {
+    Eigen::VectorXf low_distance = joint_q - joint_limit_.col(0).cast<float>();
+    Eigen::VectorXf high_distance = joint_limit_.col(1).cast<float>() - joint_q;
+    joint_q = joint_q.cwiseMax(joint_limit_.col(0).cast<float>())
+                  .cwiseMin(joint_limit_.col(1).cast<float>());
+    auto out_of_limit = low_distance.cwiseMin(high_distance).array() < 0.f;
+    // std::cout << "joint distance : " << out_of_limit.transpose() <<
+    // std::endl;
+    return out_of_limit.count() ? true : false;
   }
 
   void planning(const Eigen::Ref<const Eigen::VectorXf> &left_arm_target_q,
@@ -228,5 +251,6 @@ class G1DualArmPlanner {
   moveit::core::JointModelGroup *left_arm_model_group_, *right_arm_model_group_;
   planning_scene::PlanningScenePtr planning_scene_;
   planning_interface::PlannerManagerPtr planner_manager_;
+  Eigen::Matrix<double, 14, 2> joint_limit_;
 };
 }  // namespace g1_dual_arm

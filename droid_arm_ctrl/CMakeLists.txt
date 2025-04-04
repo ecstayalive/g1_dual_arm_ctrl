@@ -6,25 +6,25 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POLICY_DEFAULT_CMP0148 NEW)
 
 find_package(Eigen3 REQUIRED)
+
 # # Find catkin macros and libraries
 # # if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 # # is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-roscpp std_msgs sensor_msgs
-rosbag
-geometry_msgs
-unitree_legged_msgs
-rviz_visual_tools
-geometric_shapes
-dual_arm_as
-moveit_core
-moveit_visual_tools
-moveit_ros_planning
-moveit_ros_perception
-moveit_ros_planning_interface
-pcl_ros
-pcl_conversions
-# pluginlib
+  roscpp std_msgs sensor_msgs
+  geometry_msgs
+  unitree_legged_msgs
+  rviz_visual_tools
+  geometric_shapes
+  dual_arm_as
+  moveit_core
+  moveit_visual_tools
+  moveit_ros_planning
+  moveit_ros_perception
+  moveit_ros_planning_interface
+  pcl_ros
+  pcl_conversions
+  pluginlib
 )
 find_package(pinocchio REQUIRED)
 add_subdirectory(third_party/unitree_sdk2)
@@ -108,14 +108,17 @@ add_subdirectory(third_party/unitree_sdk2)
 # # CATKIN_DEPENDS: catkin_packages dependent projects also need
 # # DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
+
+  # INCLUDE_DIRS include
   # LIBRARIES droid_arm_ctrl
-  CATKIN_DEPENDS unitree_legged_msgs
+  CATKIN_DEPENDS
+  unitree_legged_msgs
   dual_arm_as
-  moveit_core
-  moveit_visual_tools
-  moveit_ros_planning_interface
-  DEPENDS EIGEN3
+
+  # moveit_core
+  # moveit_visual_tools
+  # moveit_ros_planning_interface
+  # DEPENDS EIGEN3
 )
 
 # ##########
@@ -129,11 +132,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-# # Declare a C++ library
-# add_library(${PROJECT_NAME}
-# src/${PROJECT_NAME}/droid_arm_controller.cpp
-# )
-
 # # Add cmake target dependencies of the library
 # # as an example, code may need to be generated before libraries
 # # either from message generation or dynamic reconfigure
@@ -143,19 +141,19 @@ include_directories(
 # # With catkin_make all packages are built within a single CMake context
 # # The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_node src/main.cpp src/arm_control.cpp)
-add_dependencies(${PROJECT_NAME}_node  ${dual_arm_as_EXPORTED_TARGETS} unitree_legged_msgs_gencpp)
+add_dependencies(${PROJECT_NAME}_node ${dual_arm_as_EXPORTED_TARGETS} ${unitree_legged_msgs_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
-  pinocchio::pinocchio
   unitree_sdk2
+  pinocchio::pinocchio
 )
 
 add_executable(sim_gazebo src/sim_main.cpp src/arm_control.cpp)
-add_dependencies(sim_gazebo  ${dual_arm_as_EXPORTED_TARGETS} unitree_legged_msgs_gencpp)
+add_dependencies(sim_gazebo ${dual_arm_as_EXPORTED_TARGETS} ${unitree_legged_msgs_EXPORTED_TARGETS})
 target_link_libraries(sim_gazebo
   ${catkin_LIBRARIES}
-  pinocchio::pinocchio
   unitree_sdk2
+  pinocchio::pinocchio
 )
 
 # # Rename C++ executable without prefix

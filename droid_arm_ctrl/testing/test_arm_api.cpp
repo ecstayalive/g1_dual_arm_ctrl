@@ -25,6 +25,8 @@ class TestApi {
     while (low_state_.tick == 0) {
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
+    low_cmd_.setControlGain(0.f, 1.f);
+    low_cmd_.setQ(low_state_.getQ());
   }
 
   ~TestApi() {
@@ -53,8 +55,10 @@ int main(int argc, char **argv) {
       std::chrono::milliseconds(static_cast<int>(control_dt / 0.001f));
   Eigen::VectorXf init_pos(Eigen::VectorXf::Zero(14));
   Eigen::VectorXf target_pos(Eigen::VectorXf::Zero(14));
-  target_pos << 0.f, M_PI_2f32, 0.f, M_PI_2f32, 0.f, 0.f, 0.f, 0.f, -M_PI_2f32,
-      0.f, M_PI_2f32, 0.f, 0.f, 0.f;
+  // clang-format off
+  target_pos << 0.f, M_PI_2f32, 0.f, M_PI_2f32, 0.f, 0.f, 0.f,
+                0.f, -M_PI_2f32, 0.f, M_PI_2f32, 0.f, 0.f, 0.f;
+  // clang-format on
 
   // Initialize arm
   Eigen::VectorXf cur_q(14), cmd_q(init_pos);
